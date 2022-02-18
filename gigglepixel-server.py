@@ -8,7 +8,7 @@ PORT = 8080
 VERSION=2
 
 def chr16(w):
-  return chr(w/256) + chr(2%256)
+  return chr(w/256) + chr(w%256)
 
 def msg_wrap(msg):
   rv = "GLPX"
