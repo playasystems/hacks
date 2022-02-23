@@ -34,13 +34,18 @@ def color_msg(colors, priority=1, flags=0, source_id=1, dest_id=1):
     msg += chr(b)
   return msg_wrap(msg)
 
-# Loop endlessly, sending these three RGB values at 1Hz
-colors = [(255,0,0), (0,255,0), (0,0,255)]
-while True:
-  rgb = colors.pop(0)
-  colors.append(rgb)
-  msg = color_msg(colors)
+def send_msg(msg):
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   sock.sendto(msg, (IP, PORT))
-  print "Sent new palette"
-  time.sleep(1)
+
+
+if __name__ == '__main__':
+  # Loop endlessly, sending these three RGB values at 1Hz
+  colors = [(255,0,0), (0,255,0), (0,0,255)]
+  while True:
+    rgb = colors.pop(0)
+    colors.append(rgb)
+    msg = color_msg(colors)
+    send_msg(msg)
+    print "Sent new palette"
+    time.sleep(1)
