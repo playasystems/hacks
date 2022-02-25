@@ -54,6 +54,9 @@ def loop():
 
   draw_people(cycle)
 
+  fg = None
+  bg = None
+
   for y in xrange(ROWS):
     for x in xrange(COLS):
       v0 = sin(dist(x + cycle, y, 128.0, 128.0) / 8.0)
@@ -65,9 +68,11 @@ def loop():
       rgb = list(int(255 * c) for c in colorsys.hsv_to_rgb(hue, 1, 1))
       ix = x256.from_rgb(*rgb)
       p("\033[38;5;%dm#" % ix)
-      if (x == COLS / 2 and y == ROWS / 2 and cycle % PAL_EVERY == 0):
-        msg = gp.color_msg((rgb,), source_id=2)
-        gp.send_msg(msg)
+      if (x == COLS / 2 and y == ROWS / 2):
+        fg = rgb
+      elif (x == 0 and y == 0):
+        bg = rgb
+
     if (y < ROWS-2):
       p("\n")
     elif(y == ROWS-2):
@@ -76,6 +81,10 @@ def loop():
       p("\033[90m%%%\n oo")
       p(" " * (COLS-6))
       p("oo   o\n")
+
+  if (cycle % PAL_EVERY == 0):
+    msg = gp.color_msg((fg, bg), source_id=2)
+    gp.send_msg(msg)
 
   p("\n")
   sleep(ANIM_PERIOD)

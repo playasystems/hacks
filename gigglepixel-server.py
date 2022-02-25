@@ -3,7 +3,7 @@
 import socket
 import time
 
-IP = '127.0.0.1'
+IP = '255.255.255.255'
 PORT = 8080
 VERSION=2
 
@@ -36,6 +36,7 @@ def color_msg(colors, priority=1, flags=0, source_id=1, dest_id=1):
 
 def send_msg(msg):
   sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+  sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
   sock.sendto(msg, (IP, PORT))
 
 
