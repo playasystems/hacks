@@ -4,7 +4,7 @@ import socket
 import time
 
 IP = '255.255.255.255'
-PORT = 8080
+PORT = 7016
 VERSION=2
 
 def chr16(w):

@@ -3,7 +3,7 @@
 
 # Show a dancing thing that (barely) consumes GigglePixel palette packets
 
-PORT = 8080
+PORT = 7016
 
 import socket
 import sys
@@ -36,7 +36,7 @@ client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 client.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-client.bind(("", PORT))
+client.bind(("", PORT)) # Bind to INADDR_ANY (0.0.0.0) and thus listen on all available interfaces
 
 def ord16(b0, b1):
   return ord(b0) << 8 | ord(b1)
