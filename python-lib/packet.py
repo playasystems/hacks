@@ -5,13 +5,18 @@ import struct
 import sys
 from base64 import b64encode, b64decode
 
+if sys.version_info < (3, 0):
+  sys.exit("Python 3 required")
+
 class GPException(Exception):
   pass
 
 class GPPacket():
   MAGIC = b"GLPX"
   LATEST_VERSION = 2
-  packet_types = dict(PALETTE=1, GPS=2)
+  NAME_LEN = 30
+
+  packet_types = dict(PALETTE=1, GPS=2, ID=3)
   packet_types_by_number = {v: k for k, v in packet_types.items()} # reverse mapping
   
   @classmethod
@@ -31,6 +36,10 @@ class GPPacket():
     self.__setattr__ = self.new_setattr
 
   @classmethod
+  def unpack32(cls, b0, b1, b2, b3):
+    return b0 << 24 | b1 << 16 | b2 << 8 | b3;
+
+  @classmethod
   def unpack16(cls, b0, b1):
     return b0 << 8 | b1
 
@@ -45,6 +54,10 @@ class GPPacket():
   @classmethod
   def pack16(cls, value):
     return cls.pack(value, 2)
+
+  @classmethod
+  def pack32(cls, value):
+    return cls.pack(value, 4)
 
   @classmethod
   def join_bitlist(cls, bl):
@@ -125,6 +138,8 @@ class GPPacket():
       decoder = GPPacket.decode_palette
     elif packet_type == "GPS":
       decoder = GPPacket.decode_gps
+    elif packet_type == "ID":
+      decoder = GPPacket.decode_id
     else:
       raise SystemError("Internal error in decoding table")
     rv.packet_type = packet_type
@@ -139,38 +154,56 @@ class GPPacket():
     # Note that we allow palette bodies to have *trailing* data, for futureproofing
     if len(payload) < 2 + 4 * num_entries:
       raise GPException("Short palette body")
-    pixels = []
+    entries = []
     for i in range(num_entries):
       start_index = 2 + 4 * i
       frac = payload[start_index]
       r = payload[start_index+1]
       g = payload[start_index+2]
       b = payload[start_index+3]
-      pixels.append(dict(frac=frac,red=r,green=g,blue=b))
-    return dict(pixels=pixels)
+      entries.append(dict(frac=frac,red=r,green=g,blue=b))
+    return dict(entries=entries)
 
   def encode_palette(self):
     rv = bytearray()
-    pixels = self.payload["pixels"]
-    rv += self.pack16(len(pixels))
-    for d in pixels:
+    entries = self.payload["entries"]
+    rv += self.pack16(len(entries))
+    for d in entries:
       rv += self.pack8(d["frac"])
       rv += self.pack8(d["red"])
       rv += self.pack8(d["green"])
       rv += self.pack8(d["blue"])
     return rv
 
+  LAT_MULTIPLIER=(2147483647.0 / 90.0)
+  LNG_MULTIPLIER=(2147483647.0 / 180.0)
+
   @classmethod
   def decode_gps(cls, payload):
-    lat = cls.unpack_double(payload[0:8])
-    long = cls.unpack_double(payload[8:16])
-    return dict(lat=lat, long=long)
+    lat = cls.unpack32(payload[0:4]) / LAT_MULTIPLIER
+    lng = cls.unpack32(payload[4:8]) / LNG_MULTIPLIER
+    return dict(lat=lat, lng=lng)
 
   def encode_gps(self):
     rv = bytearray()
-    rv += self.pack_double(self.payload["lat"])
-    rv += self.pack_double(self.payload["long"])
+    lat_as_int = int(self.payload["lat"] * LAT_MULTIPLIER)
+    lng_as_int = int(self.payload["lng"] * LNG_MULTIPLIER)
+    rv += self.pack_double(lat_as_int)
+    rv += self.pack_double(lng_as_int)
     return rv
+
+  @classmethod
+  def decode_id(cls, payload):
+    name_bytes = payload[:cls.NAME_LEN]
+    name = name_bytes.decode('UTF-8').strip('\0')
+    # Ignore anything that follows, for future-proofing
+    return dict(name=name)
+
+  def encode_id(self):
+    name_bytes = self.payload["name"].encode('UTF-8')
+    name_bytes = name_bytes[:GPPacket.NAME_LEN]
+    name_bytes = name_bytes.ljust(GPPacket.NAME_LEN, b'\0')
+    return name_bytes
 
   def to_binary(self):
     b = bytearray(self.MAGIC)
@@ -195,6 +228,8 @@ class GPPacket():
       return self.encode_palette()
    elif self.packet_type == "GPS":
       return self.encode_gps()
+   elif self.packet_type == "ID":
+      return self.encode_id()
    else:
      raise SystemError("Internal error in encoding table")
 
@@ -241,7 +276,7 @@ if __name__ == '__main__':
 {
   "packet_type": "PALETTE",
   "payload": {
-    "pixels": [ { "blue": 80, "frac": 100, "green": 90, "red": 68 } ]
+    "entries": [ { "blue": 80, "frac": 100, "green": 90, "red": 68 } ]
   }
 }
 """
@@ -257,5 +292,9 @@ if __name__ == '__main__':
     print (gp.toJson() + "\n\n")
 
     # And here's a GPS packet
-    gp = GPPacket.fromJson('{"packet_type": "GPS", "payload": { "lat": 40.78598, "long": -119.20584 } }')
+    gp = GPPacket.fromJson('{"packet_type": "GPS", "payload": { "lat": 40.78598, "lng": -119.20584 } }')
+    print (gp.toJson())
+
+    # And an ID packet
+    gp = GPPacket.fromJson('{"packet_type": "ID", "payload": { "name": "Timbuktu Shrub" } }')
     print (gp.toJson())

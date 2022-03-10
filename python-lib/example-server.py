@@ -1,13 +1,15 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 import colorsys
 import sys
 
-gp = __import__('gigglepixel-server')
 from math import *
 from random import randint
 from time import sleep
 from x256 import x256
+
+from packet import *
+from udp import *
 
 ANIM_PERIOD = 0.05
 PAL_EVERY = 5 
@@ -15,17 +17,17 @@ PAL_EVERY = 5
 ROWS = 5 
 COLS = 30
 
-def send_pal():
-  pass
-
+# Print without newline
 def p(s):
   sys.stdout.write(s)
 
+# Distance formula used for plasma effect
 def dist(x0, y0, x1, y1):
   dx = x1-x0
   dy = y1-y0
   return sqrt(dx**2 + dy**2)
 
+# Clear screen
 p("\033[H\033[2J")
 
 up_guy = None
@@ -38,16 +40,20 @@ def draw_people(cycle):
   if randint(0, 40) == 0:
     up_guy = randint(0, COLS/3-1)
 
-  for x in xrange(COLS/3):
+  for x in range(int(COLS/3)):
     if x == up_guy:
       p("\\o/")
     else:
       p(".o.")
   p("\n")
 
+def rgbf(rgb):
+  return dict(red=rgb[0], green=rgb[1], blue=rgb[2], frac=128)
+
 cycle = 0
 draw_people(cycle)
 
+broadcaster = GigglePixelBroadcaster()
 def loop():
   global cycle
   p("\033[H")  # Move to top-left corner
@@ -57,8 +63,8 @@ def loop():
   fg = None
   bg = None
 
-  for y in xrange(ROWS):
-    for x in xrange(COLS):
+  for y in range(ROWS):
+    for x in range(COLS):
       v0 = sin(dist(x + cycle, y, 128.0, 128.0) / 8.0)
       v1 = sin(dist(x, y, 64.0, 64.0) / 8.0)
       v2 = 0 # sin(dist(x, y + cycle / 7, 192.0, 64) / 7.0)
@@ -68,7 +74,7 @@ def loop():
       rgb = list(int(255 * c) for c in colorsys.hsv_to_rgb(hue, 1, 1))
       ix = x256.from_rgb(*rgb)
       p("\033[38;5;%dm#" % ix)
-      if (x == COLS / 2 and y == ROWS / 2):
+      if (x == int(COLS / 2) and y == int(ROWS / 2)):
         fg = rgb
       elif (x == 0 and y == 0):
         bg = rgb
@@ -83,8 +89,12 @@ def loop():
       p("oo   o\n")
 
   if (cycle % PAL_EVERY == 0):
-    msg = gp.color_msg((fg, bg), source_id=2)
-    gp.send_msg(msg)
+    gp = GPPacket.fromJson('{"packet_type": "PALETTE"}')
+    gp.payload["entries"] = [ rgbf(fg), rgbf(bg) ]
+    broadcaster.send_packet(gp)
+    gp = GPPacket.fromJson('{"packet_type": "ID"}')
+    gp.payload["name"] = "ASCII Plasma Truck"
+    broadcaster.send_packet(gp)
 
   p("\n")
   sleep(ANIM_PERIOD)
@@ -94,4 +104,4 @@ try:
   while True:
     loop()
 except KeyboardInterrupt:
-  print "\033[0m\n"
+  print ("\033[0m\n")
