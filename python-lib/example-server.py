@@ -13,6 +13,7 @@ from udp import *
 
 ANIM_PERIOD = 0.05
 PAL_EVERY = 5 
+MY_ID=123
 
 ROWS = 5 
 COLS = 30
@@ -53,7 +54,7 @@ def rgbf(rgb):
 cycle = 0
 draw_people(cycle)
 
-broadcaster = GigglePixelBroadcaster()
+broadcaster = GigglePixelBroadcaster(source_override=MY_ID)
 def loop():
   global cycle
   p("\033[H")  # Move to top-left corner

@@ -35,15 +35,19 @@ class GigglePixelListener:
 
 class GigglePixelBroadcaster:
   # Default to 255.255.255.255, which means "broadcast everywhere"
-  def __init__(self, default_ip="255.255.255.255", default_port=GIGGLEPIXEL_PORT):
+  def __init__(self, default_ip="255.255.255.255", default_port=GIGGLEPIXEL_PORT, source_override=None):
     self.default_ip = default_ip
     self.default_port = default_port
+    self.source_override = source_override
 
   def send_packet(self, gp, ip=None, port=None, broadcast=True):
     if ip is None:
       ip = self.default_ip
     if port is None:
       port = self.default_port
+
+    if self.source_override is not None:
+      gp.source = self.source_override
 
     msg = gp.to_binary()
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
