@@ -93,7 +93,7 @@ def loop():
     gp = GPPacket.fromJson('{"packet_type": "PALETTE"}')
     gp.payload["entries"] = [ rgbf(fg), rgbf(bg) ]
     broadcaster.send_packet(gp)
-    gp = GPPacket.fromJson('{"packet_type": "ID"}')
+    gp = GPPacket.fromJson('{"packet_type": "SERVER_ID"}')
     gp.payload["name"] = "ASCII Plasma Truck"
     broadcaster.send_packet(gp)
 

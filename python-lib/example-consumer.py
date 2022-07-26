@@ -6,8 +6,8 @@
 # To use, start this up and then bring up a server broadcasting GigglePixel.
 # When this receives a palette packet, the dancing pair (whose humble wearables
 # are only capable of displaying one color at a time apiece) will light up
-# to match the first two elements of the packet received. When an ID packet
-# is received, they will shout their love of the sender.
+# to match the first two elements of the packet received. When a SERVER_ID
+# packet is received, they will shout their love of the sender.
 
 PORT = 7016
 
@@ -69,7 +69,7 @@ def handle_packet(gp):
       entries.extend(entries)
     RGB1 = (entries[0]["red"], entries[0]["green"], entries[0]["blue"])
     RGB2 = (entries[1]["red"], entries[1]["green"], entries[1]["blue"])
-  elif gp.packet_type == "ID":
+  elif gp.packet_type == "SERVER_ID":
     banner = "We love " + gp.payload["name"]
 
 next_dance = time()

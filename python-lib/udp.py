@@ -53,6 +53,7 @@ class GigglePixelBroadcaster:
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    server.bind(('', GIGGLEPIXEL_PORT))
     if broadcast:
       server.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     server.sendto(msg, (ip, port))

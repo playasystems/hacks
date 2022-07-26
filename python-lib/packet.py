@@ -16,7 +16,7 @@ class GPPacket():
   LATEST_VERSION = 2
   NAME_LEN = 30
 
-  packet_types = dict(PALETTE=1, GPS=2, ID=3)
+  packet_types = dict(PALETTE=1, SERVER_ID=3, CLIENT_ID=4)
   packet_types_by_number = {v: k for k, v in packet_types.items()} # reverse mapping
   
   @classmethod
@@ -136,10 +136,10 @@ class GPPacket():
       raise GPException("Unknown packet type %d" % packet_type)
     if packet_type == "PALETTE": 
       decoder = GPPacket.decode_palette
-    elif packet_type == "GPS":
-      decoder = GPPacket.decode_gps
-    elif packet_type == "ID":
-      decoder = GPPacket.decode_id
+    elif packet_type == "SERVER_ID":
+      decoder = GPPacket.decode_server_id
+    elif packet_type == "CLIENT_ID":
+      decoder = GPPacket.decode_client_id
     else:
       raise SystemError("Internal error in decoding table")
     rv.packet_type = packet_type
@@ -175,35 +175,41 @@ class GPPacket():
       rv += self.pack8(d["blue"])
     return rv
 
-  LAT_MULTIPLIER=(2147483647.0 / 90.0)
-  LNG_MULTIPLIER=(2147483647.0 / 180.0)
-
   @classmethod
-  def decode_gps(cls, payload):
-    lat = cls.unpack32(payload[0:4]) / LAT_MULTIPLIER
-    lng = cls.unpack32(payload[4:8]) / LNG_MULTIPLIER
-    return dict(lat=lat, lng=lng)
-
-  def encode_gps(self):
-    rv = bytearray()
-    lat_as_int = int(self.payload["lat"] * LAT_MULTIPLIER)
-    lng_as_int = int(self.payload["lng"] * LNG_MULTIPLIER)
-    rv += self.pack_double(lat_as_int)
-    rv += self.pack_double(lng_as_int)
-    return rv
-
-  @classmethod
-  def decode_id(cls, payload):
+  def decode_server_id(cls, payload):
     name_bytes = payload[:cls.NAME_LEN]
     name = name_bytes.decode('UTF-8').strip('\0')
     # Ignore anything that follows, for future-proofing
     return dict(name=name)
 
-  def encode_id(self):
+  def encode_server_id(self):
     name_bytes = self.payload["name"].encode('UTF-8')
     name_bytes = name_bytes[:GPPacket.NAME_LEN]
     name_bytes = name_bytes.ljust(GPPacket.NAME_LEN, b'\0')
     return name_bytes
+
+  @classmethod
+  def decode_client_id(cls, payload):
+    mac_bytes = payload[0:6]
+    ip_bytes = payload[6:10]
+    name_bytes = payload[10:10+cls.NAME_LEN]
+    mac = ":".join(("%0.2X" % b for b in mac_bytes))
+    ip = ".".join("%d" % b for b in ip_bytes)
+    name = name_bytes.decode('UTF-8').strip('\0')
+    # Ignore anything that follows, for future-proofing
+    return dict(mac=mac, ip=ip, name=name)
+
+  def encode_client_id(self):
+    rv = bytearray()
+    for b in self.payload["mac"].split(":"):
+      rv += self.pack8(int(b, 16))
+    for b in self.payload["ip"].split("."):
+      rv += self.pack8(int(b))
+    name_bytes = self.payload["name"].encode('UTF-8')
+    name_bytes = name_bytes[:GPPacket.NAME_LEN]
+    name_bytes = name_bytes.ljust(GPPacket.NAME_LEN, b'\0')
+    rv.extend(name_bytes)
+    return rv
 
   def to_binary(self):
     b = bytearray(self.MAGIC)
@@ -226,10 +232,10 @@ class GPPacket():
   def encode_payload(self):
    if self.packet_type == "PALETTE":
       return self.encode_palette()
-   elif self.packet_type == "GPS":
-      return self.encode_gps()
-   elif self.packet_type == "ID":
-      return self.encode_id()
+   elif self.packet_type == "SERVER_ID":
+      return self.encode_server_id()
+   elif self.packet_type == "CLIENT_ID":
+      return self.encode_client_id()
    else:
      raise SystemError("Internal error in encoding table")
 
@@ -291,10 +297,17 @@ if __name__ == '__main__':
     gp = GPPacket.from_base64(b64)
     print (gp.toJson() + "\n\n")
 
-    # And here's a GPS packet
-    gp = GPPacket.fromJson('{"packet_type": "GPS", "payload": { "lat": 40.78598, "lng": -119.20584 } }')
+    # And here's a SERVER_ID packet
+    gp = GPPacket.fromJson('{"packet_type": "SERVER_ID", "payload": { "name": "Timbuktu Shrub" } }')
     print (gp.toJson())
 
-    # And an ID packet
-    gp = GPPacket.fromJson('{"packet_type": "ID", "payload": { "name": "Timbuktu Shrub" } }')
+    # And a CLIENT_ID as bytes
+    client_bytes = [ 0x47, 0x4C, 0x50, 0x58, 0x02, 0x00, 0x36, 0x04, 0x05, 0x00, 0xAB, 0xF1,
+                     0x00, 0x00, 0x44, 0x17, 0x93, 0x12, 0xAB, 0xF1, 0xC0, 0xA8, 0x01, 0x7C,
+                     0x54, 0x45, 0x20, 0x4D, 0x65, 0x64, 0x61, 0x6C, 0x6C, 0x69, 0x6F, 0x6E,
+                     0x20, 0x76, 0x30, 0x2E, 0x31, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+    gp = GPPacket.from_binary(bytearray(client_bytes))
+    b64 = gp.to_base64()
+    gp = GPPacket.from_base64(b64)
     print (gp.toJson())
+
